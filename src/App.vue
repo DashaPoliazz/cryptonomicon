@@ -181,6 +181,18 @@ export default {
   name: "App",
   components: {},
 
+  created() {
+    const savedTickers = JSON.parse(localStorage.getItem("TICKERS"));
+
+    if (savedTickers.length) {
+      this.tickers = savedTickers;
+    }
+
+    this.tickers.map((tickerToUpdate) =>
+      this.subscribeToUpdate(tickerToUpdate.name)
+    );
+  },
+
   async mounted() {
     const f = await fetch(
       "https://min-api.cryptocompare.com/data/all/coinlist?summary=true"
@@ -209,6 +221,25 @@ export default {
   },
 
   methods: {
+    subscribeToUpdate(tickerName) {
+      setInterval(async () => {
+        const API_KEY =
+          "b37afdc4c25cd1d1d6540832ad0bf639972f320d44b5b2bbccac0937175e72ec";
+
+        const f = await fetch(
+          `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=${API_KEY}`
+        );
+
+        const { USD } = await f.json();
+
+        if (tickerName === this.selectedTicker?.name) {
+          this.graph.push(USD);
+        }
+
+        this.tickers.find((t) => t.name === tickerName).price = USD;
+      }, 3000);
+    },
+
     selectTicker(tickerToSelect) {
       this.selectedTicker = tickerToSelect;
       this.graph.length = 0;
@@ -239,30 +270,22 @@ export default {
         price: "-",
       };
 
-      setInterval(async () => {
-        const API_KEY =
-          "b37afdc4c25cd1d1d6540832ad0bf639972f320d44b5b2bbccac0937175e72ec";
-
-        const f = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${newTicker.name}&tsyms=USD&api_key=${API_KEY}`
-        );
-
-        const { USD } = await f.json();
-
-        if (newTicker?.name === this.selectedTicker?.name) {
-          this.graph.push(USD);
-        }
-
-        this.tickers.find((t) => t.name === newTicker.name).price = USD;
-      }, 3000);
+      this.subscribeToUpdate(newTicker.name);
 
       this.tickers.push(newTicker);
+      localStorage.setItem("TICKERS", JSON.stringify(this.tickers));
 
       this.ticker = "";
     },
 
     removeTicker(tickerToRemove) {
-      this.tickers = this.tickers.filter((t) => t.name !== tickerToRemove.name);
+      const filteredTickers = this.tickers.filter(
+        (t) => t.name !== tickerToRemove.name
+      );
+
+      this.tickers = filteredTickers;
+
+      localStorage.setItem("TICKERS", JSON.stringify(filteredTickers));
     },
 
     normalizeGraph() {
