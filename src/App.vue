@@ -35,7 +35,8 @@
             <div class="mt-1 relative rounded-md shadow-md">
               <input
                 v-model="ticker"
-                @keydown.enter="addTicker"
+                @keydown.enter="addTicker(ticker)"
+                @change="getTickersHints"
                 type="text"
                 name="wallet"
                 id="wallet"
@@ -47,31 +48,24 @@
               class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap"
             >
               <span
+                v-for="hint in getTickersHints()"
+                :key="hint"
+                @click="addTicker(hint)"
                 class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
               >
-                BTC
-              </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                DOGE
-              </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                BCH
-              </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                CHD
+                {{ hint }}
               </span>
             </div>
-            <div class="text-sm text-red-600">Такой тикер уже добавлен</div>
+            <div v-if="isTickerExist" class="text-sm text-red-600">
+              Такой тикер уже добавлен
+            </div>
+            <div v-if="isEmptyTicker" class="text-sm text-red-600">
+              Please, enter ticker name
+            </div>
           </div>
         </div>
         <button
-          @click="addTicker"
+          @click.stop="addTicker(ticker)"
           type="button"
           class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
         >
@@ -186,6 +180,17 @@
 export default {
   name: "App",
   components: {},
+
+  async mounted() {
+    const f = await fetch(
+      "https://min-api.cryptocompare.com/data/all/coinlist?summary=true"
+    );
+
+    const { Data } = await f.json();
+
+    this.availableTickers = Data;
+  },
+
   data() {
     return {
       isLoading: false,
@@ -195,6 +200,11 @@ export default {
       selectedTicker: null,
 
       graph: [],
+
+      availableTickers: null,
+
+      isEmptyTicker: false,
+      isTickerExist: false,
     };
   },
 
@@ -204,9 +214,28 @@ export default {
       this.graph.length = 0;
     },
 
-    addTicker() {
+    addTicker(tickerName) {
+      if (!tickerName.length) {
+        this.isEmptyTicker = true;
+        return;
+      }
+
+      if (
+        this.tickers.find(
+          (t) => t.name.toLowerCase() === tickerName.toLowerCase()
+        )
+      ) {
+        this.isTickerExist = true;
+
+        setTimeout(() => {
+          this.isTickerExist = false;
+        }, 3000);
+
+        return;
+      }
+
       const newTicker = {
-        name: this.ticker,
+        name: tickerName,
         price: "-",
       };
 
@@ -220,7 +249,7 @@ export default {
 
         const { USD } = await f.json();
 
-        if (newTicker.name === this.selectedTicker.name) {
+        if (newTicker?.name === this.selectedTicker?.name) {
           this.graph.push(USD);
         }
 
@@ -243,6 +272,38 @@ export default {
       return this.graph.map(
         (price) => 5 + (price - minPrice + 95) / (maxPrice - minPrice)
       );
+    },
+
+    getTickersHints() {
+      if (!this.ticker.length) {
+        return ["BTC", "XRP", "ETH", "DOGE"];
+      }
+
+      const tickerHints = [];
+
+      for (const t in this.availableTickers) {
+        if (t.toLowerCase().includes(this.ticker.toLowerCase())) {
+          tickerHints.push(t);
+        }
+
+        if (
+          this.availableTickers[t].FullName.toLowerCase().includes(
+            this.ticker.toLowerCase()
+          )
+        ) {
+          tickerHints.push(t);
+        }
+      }
+
+      return tickerHints.splice(0, 4);
+    },
+  },
+
+  watch: {
+    ticker() {
+      if (this.ticker.length > 0) {
+        this.isEmptyTicker = false;
+      }
     },
   },
 };
