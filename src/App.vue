@@ -87,10 +87,16 @@
       </section>
 
       <template v-if="tickers.length">
+        <input
+          v-model="filterQuery"
+          class="block w-full pr-10 border-gray-300 text-gray-900 focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm rounded-md"
+          type="text"
+          placeholder="Please, enter ticker's name"
+        />
         <hr class="w-full border-t border-gray-600 my-4" />
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div
-            v-for="t in tickers"
+            v-for="t in tickerListToRender"
             :key="t.name"
             @click="selectTicker(t)"
             :class="{
@@ -209,6 +215,9 @@ export default {
 
       tickers: [],
       ticker: "",
+
+      filteredTickers: [],
+      filterQuery: "",
       selectedTicker: null,
 
       graph: [],
@@ -322,11 +331,23 @@ export default {
     },
   },
 
+  computed: {
+    tickerListToRender() {
+      return this.filteredTickers.length ? this.filteredTickers : this.tickers;
+    },
+  },
+
   watch: {
     ticker() {
       if (this.ticker.length > 0) {
         this.isEmptyTicker = false;
       }
+    },
+
+    filterQuery() {
+      this.filteredTickers = this.tickers.filter((t) =>
+        t.name.toLowerCase().includes(this.filterQuery.toLowerCase())
+      );
     },
   },
 };
