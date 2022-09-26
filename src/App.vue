@@ -98,7 +98,7 @@
           <div
             v-for="t in tickers"
             :key="t.name"
-            @click="selectedTicker = t"
+            @click="selectTicker(t)"
             :class="{
               'border-4': selectedTicker === t,
             }"
@@ -114,7 +114,7 @@
             </div>
             <div class="w-full border-t border-gray-200"></div>
             <button
-              @click="removeTicker(t)"
+              @click.stop="removeTicker(t)"
               class="flex items-center justify-center font-medium w-full bg-gray-100 px-4 py-4 sm:px-6 text-md text-gray-500 hover:text-gray-600 hover:bg-gray-200 hover:opacity-20 transition-all focus:outline-none"
             >
               <svg
@@ -135,17 +135,25 @@
           </div>
         </dl>
         <hr class="w-full border-t border-gray-600 my-4" />
-        <section class="relative">
+        <section v-if="selectedTicker" class="relative">
           <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
             {{ selectedTicker ? selectedTicker.name : "?" }} - USD
           </h3>
           <div class="flex items-end border-gray-600 border-b border-l h-64">
-            <div class="bg-purple-800 border w-10 h-24"></div>
-            <div class="bg-purple-800 border w-10 h-32"></div>
-            <div class="bg-purple-800 border w-10 h-48"></div>
-            <div class="bg-purple-800 border w-10 h-16"></div>
+            <div
+              v-for="(bar, idx) in normalizeGraph()"
+              :key="idx"
+              :style="{
+                height: `${bar}%`,
+              }"
+              class="bg-purple-800 border w-10"
+            ></div>
           </div>
-          <button type="button" class="absolute top-0 right-0">
+          <button
+            @click="selectedTicker = null"
+            type="button"
+            class="absolute top-0 right-0"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -182,31 +190,42 @@ export default {
     return {
       isLoading: false,
 
-      tickers: [
-        {
-          name: "LTC",
-          price: 9999,
-        },
-        {
-          name: "BTC",
-          price: 9999,
-        },
-        {
-          name: "ETH",
-          price: 9999,
-        },
-      ],
+      tickers: [],
       ticker: "",
       selectedTicker: null,
+
+      graph: [],
     };
   },
 
   methods: {
+    selectTicker(tickerToSelect) {
+      this.selectedTicker = tickerToSelect;
+      this.graph.length = 0;
+    },
+
     addTicker() {
       const newTicker = {
         name: this.ticker,
         price: "-",
       };
+
+      setInterval(async () => {
+        const API_KEY =
+          "b37afdc4c25cd1d1d6540832ad0bf639972f320d44b5b2bbccac0937175e72ec";
+
+        const f = await fetch(
+          `https://min-api.cryptocompare.com/data/price?fsym=${newTicker.name}&tsyms=USD&api_key=${API_KEY}`
+        );
+
+        const { USD } = await f.json();
+
+        if (newTicker.name === this.selectedTicker.name) {
+          this.graph.push(USD);
+        }
+
+        this.tickers.find((t) => t.name === newTicker.name).price = USD;
+      }, 3000);
 
       this.tickers.push(newTicker);
 
@@ -215,6 +234,15 @@ export default {
 
     removeTicker(tickerToRemove) {
       this.tickers = this.tickers.filter((t) => t.name !== tickerToRemove.name);
+    },
+
+    normalizeGraph() {
+      const maxPrice = Math.max(...this.graph);
+      const minPrice = Math.min(...this.graph);
+
+      return this.graph.map(
+        (price) => 5 + (price - minPrice + 95) / (maxPrice - minPrice)
+      );
     },
   },
 };
